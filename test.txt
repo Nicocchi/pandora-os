@@ -1,1 +1,2 @@
-Hello Nanahira server from a file!!!
+Hello Nanahira server! This is being read from a text file stored on the FAT filesytem.
+If you are reading this, that means that the FAT driver has been implemented properly.

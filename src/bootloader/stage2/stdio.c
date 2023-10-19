@@ -14,6 +14,15 @@ void puts(const char *str)
   }
 }
 
+void puts_f(const char far* str)
+{
+    while(*str)
+    {
+        putc(*str);
+        str++;
+    }
+}
+
 #define PRINTF_STATE_NORMAL         0
 #define PRINTF_STATE_LENGTH         1
 #define PRINTF_STATE_LENGTH_SHORT   2
@@ -93,8 +102,14 @@ void _cdecl printf(const char *fmt, ...)
             argp++;
             break;
           case 's':
-            puts(*(char**)argp);
-            argp++;
+            if (length == PRINTF_LENGTH_LONG || length == PRINTF_LENGTH_LONG_LONG)
+            {
+              puts_f(*(const char far**)argp);
+              argp += 2;
+            } else {
+              puts(*(const char**)argp);
+              argp++;
+            }
             break;
           case '%':
             putc('%');
@@ -148,80 +163,101 @@ const char g_HexChars[] = "0123456789abcdef"; // Contain the list of hexadecimal
 
 // Converts whatever data type it gets to an unsigned long long,
 // and then convert that to a string
-int *printf_number(int *argp, int length, bool sign, int radix)
+int* printf_number(int* argp, int length, bool sign, int radix)
 {
-  char buffer[32];            // stores formatted result
-  unsigned long long number;
-  int number_sign = 1;        // 1 or -1 depending on if the number is positive or negative
-  int pos = 0;                // keep track of the current position in the buffer
+    char buffer[32]; // stores formatted result
+    unsigned long long number;
+    int number_sign = 1; // 1 or -1 depending on if the number is positive or negative
+    int pos = 0; // keep track of the current position in the buffer
 
-  // process length
-  switch(length)
-  {
-    case PRINTF_LENGTH_SHORT_SHORT:
-    case PRINTF_LENGTH_SHORT:
-    case PRINTF_LENGTH_DEFAULT:
-      if (sign) {
-        int n = *argp;
+    // process length
+    switch (length)
+    {
+        case PRINTF_LENGTH_SHORT_SHORT:
+        case PRINTF_LENGTH_SHORT:
+        case PRINTF_LENGTH_DEFAULT:
+            if (sign)
+            {
+                int n = *argp;
+                if (n < 0)
+                {
+                    n = -n;
+                    number_sign = -1;
+                }
+                number = (unsigned long long)n;
+            }
+            else
+            {
+                number = *(unsigned int*)argp;
+            }
+            argp++;
+            break;
 
-        // Check if the num is pos or neg
-        if (n < 0) {
-          n = -n;
-          number_sign = -1;
-        }
-        number = (unsigned long long)n;
-      } else {
-        number = *(unsigned int*)argp;
-      }
-      argp++;
-      break;
-    case PRINTF_LENGTH_LONG_LONG:
-      if (sign) {
-        long int n = *(long int*)argp;
+        case PRINTF_LENGTH_LONG:
+            if (sign)
+            {
+                long int n = *(long int*)argp;
+                if (n < 0)
+                {
+                    n = -n;
+                    number_sign = -1;
+                }
+                number = (unsigned long long)n;
+            }
+            else
+            {
+                number = *(unsigned long int*)argp;
+            }
+            argp += 2;
+            break;
 
-        if (n < 0) {
-          n = -n;
-          number_sign = -1;
-        }
-        number = (unsigned long long)n;
-      } else {
-        number = *(unsigned long int*)argp;
-      }
-      argp += 2;
-      break;
-    case PRINTF_LENGTH_LONG:
-      if (sign) {
-        long long int n = *(long long int*)argp;
+        case PRINTF_LENGTH_LONG_LONG:
+            if (sign)
+            {
+                long long int n = *(long long int*)argp;
+                if (n < 0)
+                {
+                    n = -n;
+                    number_sign = -1;
+                }
+                number = (unsigned long long)n;
+            }
+            else
+            {
+                number = *(unsigned long long int*)argp;
+            }
+            argp += 4;
+            break;
+    }
 
-        if (n < 0) {
-          n = -n;
-          number_sign = -1;
-        }
-        number = (unsigned long long)n;
-      } else {
-        number = *(unsigned long long int*)argp;
-      }
-      argp += 4;
-      break;
-  }
+    // convert number to ASCII
+    do 
+    {
+        u32 rem;
+        x86_div64_32(number, radix, &number, &rem);
+        buffer[pos++] = g_HexChars[rem];
+    } while (number > 0);
 
-  // convert number to ASCII
-  do {
-    u32 rem;
-    x86_div64_32(number, radix, &number, &rem);
-    buffer[pos++] = g_HexChars[rem];
-  } while (number > 0);
+    // add sign
+    if (sign && number_sign < 0)
+        buffer[pos++] = '-';
 
-  // add sign
-  if (sign && number_sign < 0) {
-    buffer[pos++] = '-';
-  }
+    // print number in reverse order
+    while (--pos >= 0)
+        putc(buffer[pos]);
 
-  // print number in reverse order
-  while (--pos >= 0) {
-    putc(buffer[pos]);
-  }
+    return argp;
+}
 
-  return argp;
-
+void print_buffer(const char* msg, const void far* buffer, u16 count)
+{
+    const u8 far* u8Buffer = (const u8 far*)buffer;
+    
+    puts(msg);
+    for (u16 i = 0; i < count; i++)
+    {
+        putc(g_HexChars[u8Buffer[i] >> 4]);
+        putc(g_HexChars[u8Buffer[i] & 0xF]);
+    }
+    puts("\r\n");
 }
