@@ -100,28 +100,28 @@ start:
   mov bx, buffer                      ; es:bx = buffer
   call disk_read
 
-  ; search for kernel.bin
+  ; search for stage2.bin
   xor bx, bx
   mov di, buffer
 
-.search_kernel:
+.search_stage2:
   mov si, file_stage2_bin
   mov cx, 11                          ; compare up to 11 characters
   push di
   repe cmpsb
   pop di
-  je .found_kernel
+  je .found_stage2
 
   add di, 32
   inc bx
   cmp bx, [bdb_dir_entries_count]
-  jl .search_kernel
+  jl .search_stage2
 
-  ; kernel not found
-  jmp kernel_not_found_error
+  ; stage2 not found
+  jmp stage2_not_found_error
 
 
-.found_kernel:
+.found_stage2:
   ; di should have the address to the entry
   mov ax, [di + 26]                   ; first logical cluster field (offset 26)
   mov [stage2_cluster], ax
@@ -133,23 +133,23 @@ start:
   mov dl, [ebr_drive_number]
   call disk_read
 
-  ; read kernel and process FAT chain
-  mov bx, KERNEL_LOAD_SEGMENT
+  ; read stage2 and process FAT chain
+  mov bx, STAGE2_LOAD_SEGMENT
   mov es, bx
-  mov bx, KERNEL_LOAD_OFFSET
+  mov bx, STAGE2_LOAD_OFFSET
 
-.load_kernel_loop:
+.load_stage2_loop:
   ; read next cluster
   mov ax, [stage2_cluster]
 
   ; TODO: change from hardcoded value
-  add ax, 31                          ; first cluster = (stage2_cluster - 2) * sectors_per_cluster + kernel_cluster + start_sector
+  add ax, 31                          ; first cluster = (stage2_cluster - 2) * sectors_per_cluster + stage2_cluster + start_sector
                                       ; start sector = reserved + fats + root directory size = 1 + 18 + 134 = 33
   mov cl, 1
   mov dl, [ebr_drive_number]
   call disk_read
 
-  ; will overflow if the kernel.bin file is larger than 64kb
+  ; will overflow if the stage2.bin file is larger than 64kb
   add bx, [bdb_bytes_per_sector]
 
   ; compute location of next cluster
@@ -178,18 +178,18 @@ start:
   jae .read_finish
 
   mov [stage2_cluster], ax
-  jmp .load_kernel_loop
+  jmp .load_stage2_loop
 
 
 .read_finish:
-  ; jump to the kernel
+  ; jump to the stage2
   mov dl, [ebr_drive_number]          ; boot device in dl
 
-  mov ax, KERNEL_LOAD_SEGMENT         ; set segment registers
+  mov ax, STAGE2_LOAD_SEGMENT         ; set segment registers
   mov ds, ax
   mov es, ax
 
-  jmp KERNEL_LOAD_SEGMENT:KERNEL_LOAD_OFFSET
+  jmp STAGE2_LOAD_SEGMENT:STAGE2_LOAD_OFFSET
 
   jmp wait_key_and_reboot             ; should never happen
 
@@ -204,7 +204,7 @@ floppy_error:
   call puts
   jmp wait_key_and_reboot
 
-kernel_not_found_error:
+stage2_not_found_error:
   mov si, msg_stage2_not_found
   call puts
   jmp wait_key_and_reboot
@@ -356,8 +356,8 @@ msg_stage2_not_found    db 'STAGE2.BIN file not found', ENDL, 0
 file_stage2_bin:        db 'STAGE2  BIN'
 stage2_cluster          dw 0
 
-KERNEL_LOAD_SEGMENT     equ 0x2000
-KERNEL_LOAD_OFFSET      equ 0
+STAGE2_LOAD_SEGMENT     equ 0x0
+STAGE2_LOAD_OFFSET      equ 0x500
 
 ; fill up 512 bytes
 times 510-($-$$) db 0 ;$-$$ is the size of the prgram so far in bytes

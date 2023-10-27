@@ -1,12 +1,14 @@
 #pragma once
-#include "stdint.h"
+#include <stdint.h>
+#include <stdbool.h>
 
-void _cdecl x86_div64_32(u64 dividend, u32 divisor, u64 *quotientOut, u32 *remainderOut);
+void __attribute__((cdecl)) x86_outb(uint16_t port, uint8_t value);
+uint8_t __attribute__((cdecl)) x86_inb(uint16_t port);
 
-void _cdecl x86_Video_WriteCharTeletype(char c, u8 page);
-
-bool _cdecl x86_Disk_Reset(u8 drive);
-bool _cdecl x86_Disk_Read(u8 drive, u16 cylinder, u16 sector, u16 head, u8 count, void far *dataOut);
+void __attribute__((cdecl)) x86_realmode_putc(char c);
 
 // Get disk geometry without relying on the boot sector, which could get corrupted.
-bool _cdecl x86_Disk_GetDriveParams(u8 drive, u8 *driveTypeOut, u16 *cylindersOut, u16 *sectorsOut, u16 *headsOut);
+bool __attribute__((cdecl)) x86_Disk_GetDriveParams(uint8_t drive, uint8_t *driveTypeOut, uint16_t *cylindersOut, uint16_t *sectorsOut, uint16_t *headsOut);
+
+bool __attribute__((cdecl)) x86_Disk_Reset(uint8_t drive);
+bool __attribute__((cdecl)) x86_Disk_Read(uint8_t drive, uint16_t cylinder, uint16_t sector, uint16_t head, uint8_t count, void *lowerDataOut);
